@@ -1,0 +1,85 @@
+---
+title: "Practical Machine Learning"
+output: html_document
+---
+
+###Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Data
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+### Machine Learning Algorithm
+
+Our task is to predict the outcome variable classe based on other predictor variables. Classe is a factor variable with the following values: A (performing the exercise as specified), B (throwing elbows to the front), C (lifting the dumbbell halfway), D (lowering the dumbbell halfway), E (throwing the hips to the front).
+
+```{r,echo=FALSE,results='hide',message=FALSE}
+library(caret)
+library(randomForest)
+```
+
+First I load the datasets, replacing missing or invalid entries with NA.
+
+```{r}
+training <- read.csv("C:/Users/T. Rhyker Benavidez/Documents/pml-training.csv",na.strings=c("","NA","#DIV/0!"))
+testing <- read.csv("C:/Users/T. Rhyker Benavidez/Documents/pml-testing.csv",na.strings=c("","NA","#DIV/0!"))
+```
+
+Looking at the datasets, many columns were mostly filled with NA values. Thus, these columns were deleted. Furthermore, it appears that the first seven columns have data which do not pertain to the accelorometer data of the subjects. Thus, these columns were deleted.
+
+```{r}
+training <- training[,colSums(is.na(training)) == 0]
+testing <- testing[,colSums(is.na(testing)) == 0]
+training <- training[,8:60]
+testing <- testing[,8:60]
+```
+After these edits were made to the datasets, the testing and training sets each had only 53 variables which could be used to predict the classe variable.
+
+Next, I partition the training data into a training and test subgroups. This allows us to perform cross-validation on the data. I use the createDataPartition function from the caret package.
+
+```{r}
+set.seed(76)
+training_partition <- createDataPartition(y=training$classe,p=0.80,list=FALSE)
+training_train <- training[training_partition,]
+training_test <- training[-training_partition,]
+```
+
+#Models
+
+For our model, we will use a random forest.
+
+```{r,cache=TRUE}
+model_randomforest <- randomForest(classe ~., data=training_train,importance=TRUE)
+predict_randomforest <- predict(model_randomforest,training_train)
+confusionMatrix(predict_randomforest,training_train$classe)
+```
+
+As we can see, the random forest model performed very well against our trainingtrain dataset (an accuracy of 100%). Now, we should cross-validate these results with the trainingtest dataset.
+
+```{r,cache=TRUE}
+predict_crossvalidation <- predict(model_randomforest,training_test)
+confusionMatrix(predict_crossvalidation,training_test$classe)
+```
+
+Again, we see that this model performed very well, with 99.18% of the out of sample data being correctly predicted. Thus, the out-of-sample error is 1-accuracy = 0.82%.
+
+### Predicting the Test Set
+
+Finally, we can use this model to predict the classe of the 20 subjects in the testing dataset.
+
+```{r}
+predict_test <- predict(model_randomforest,testing)
+predict_test
+```
+
+With the high accuracy of the prediction model, we can predict that few if any of these classe predictions will be incorrect.
